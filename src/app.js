@@ -10,7 +10,7 @@ import { mutateDb, readDb, uploadDir } from './db.js';
 
 const apiPrefix = process.env.API_PREFIX || '/api';
 const publicBaseUrl =
-  process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+  process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3131}`;
 
 const upload = multer({
   storage: multer.diskStorage({

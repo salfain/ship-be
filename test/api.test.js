@@ -7,7 +7,7 @@ import { after, before, test } from 'node:test';
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ship-api-'));
 process.env.DATA_DIR = path.join(tempRoot, 'data');
 process.env.UPLOAD_DIR = path.join(tempRoot, 'uploads');
-process.env.PUBLIC_BASE_URL = 'http://localhost:3000';
+process.env.PUBLIC_BASE_URL = 'http://localhost:3131';
 process.env.TOKEN_SECRET = 'test-secret';
 
 const { createApp } = await import('../src/app.js');

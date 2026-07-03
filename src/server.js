@@ -3,7 +3,7 @@ import 'dotenv/config';
 import { createApp } from './app.js';
 import { ensureStorage } from './db.js';
 
-const port = Number(process.env.PORT || 3000);
+const port = Number(process.env.PORT || 3131);
 
 ensureStorage();
 

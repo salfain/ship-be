@@ -33,13 +33,13 @@ npm run dev
 API lokal:
 
 ```text
-http://localhost:3000/api
+http://localhost:3131/api
 ```
 
 Jika Flutter dijalankan di Android emulator, gunakan:
 
 ```env
-API_BASE_URL=http://10.0.2.2:3000/api
+API_BASE_URL=http://10.0.2.2:3131/api
 MANAGER_DECISION_ENABLED=true
 ```
 
