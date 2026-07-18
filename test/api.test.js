@@ -74,6 +74,66 @@ test('manager cannot use admin approve endpoint', async () => {
   assert.equal(response.status, 403);
 });
 
+test('admin can create a ship with an automatically generated id', async () => {
+  const admin = await login('admin', 'password');
+  const response = await fetch(`${baseUrl}/ships`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${admin.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      shipNumber: 'km-new-001',
+      name: 'Cakrawala Baru',
+    }),
+  });
+
+  assert.equal(response.status, 201);
+  const body = await response.json();
+  assert.match(body.data.id, /^ship-[0-9a-f-]+$/);
+  assert.equal(body.data.shipNumber, 'KM-NEW-001');
+  assert.equal(body.data.name, 'Cakrawala Baru');
+  assert.equal(body.data.captain, null);
+
+  const ships = await getJson('/ships', admin.token);
+  assert.ok(ships.data.some((ship) => ship.id === body.data.id));
+});
+
+test('ship creation rejects duplicate ship numbers', async () => {
+  const admin = await login('admin', 'password');
+  const response = await fetch(`${baseUrl}/ships`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${admin.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      shipNumber: 'KM-NEW-001',
+      name: 'Duplikat',
+    }),
+  });
+
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).message, 'Nomor kapal sudah terdaftar.');
+});
+
+test('manager cannot create ships', async () => {
+  const manager = await login('manager', 'password');
+  const response = await fetch(`${baseUrl}/ships`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${manager.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      shipNumber: 'KM-BLOCKED',
+      name: 'Tidak Diizinkan',
+    }),
+  });
+
+  assert.equal(response.status, 403);
+});
+
 test('admin can create and list a new captain account', async () => {
   const admin = await login('admin', 'password');
   const response = await fetch(`${baseUrl}/users`, {

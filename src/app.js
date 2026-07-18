@@ -58,6 +58,7 @@ export function createApp() {
         'POST /auth/login',
         'POST /users',
         'GET /ships',
+        'POST /ships',
         'GET /submissions',
         'PUT /submissions/:id/manager-validation',
       ],
@@ -152,6 +153,42 @@ export function createApp() {
   router.get('/ships', authRequired, requireRole('ADMIN', 'MANAGER'), (req, res) => {
     const db = readDb();
     res.json({ data: db.ships.map((ship) => serializeShip(req, db, ship)) });
+  });
+
+  router.post('/ships', authRequired, requireRole('ADMIN'), (req, res) => {
+    const shipNumber = `${req.body?.shipNumber || ''}`.trim().toUpperCase();
+    const name = `${req.body?.name || ''}`.trim();
+
+    if (!/^[A-Z0-9][A-Z0-9 ._/-]{1,31}$/.test(shipNumber)) {
+      throw new ApiError(
+        400,
+        'Nomor kapal harus 2-32 karakter dan hanya boleh berisi huruf, angka, spasi, titik, garis bawah, garis miring, atau tanda hubung.',
+      );
+    }
+    if (name.length < 2 || name.length > 80) {
+      throw new ApiError(400, 'Nama kapal harus 2-80 karakter.');
+    }
+
+    const created = mutateDb((db) => {
+      const duplicate = db.ships.some(
+        (ship) => `${ship.shipNumber}`.trim().toUpperCase() === shipNumber,
+      );
+      if (duplicate) throw new ApiError(409, 'Nomor kapal sudah terdaftar.');
+
+      const ship = {
+        id: `ship-${crypto.randomUUID()}`,
+        shipNumber,
+        name,
+        captainId: null,
+      };
+      db.ships.push(ship);
+      return serializeShip(req, db, ship);
+    });
+
+    res.status(201).json({
+      message: 'Kapal berhasil ditambahkan.',
+      data: created,
+    });
   });
 
   router.get('/ships/my', authRequired, requireRole('NAHKODA'), (req, res) => {
