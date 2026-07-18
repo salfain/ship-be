@@ -57,6 +57,7 @@ export function createApp() {
       endpoints: [
         'POST /auth/login',
         'POST /users',
+        'PUT /users/:id',
         'GET /ships',
         'POST /ships',
         'GET /submissions',
@@ -147,6 +148,83 @@ export function createApp() {
     res.status(201).json({
       message: 'Akun pengguna berhasil dibuat.',
       data: created,
+    });
+  });
+
+  router.put('/users/:id', authRequired, requireRole('ADMIN'), (req, res) => {
+    const name = `${req.body?.name || ''}`.trim();
+    const username = `${req.body?.username || ''}`.trim().toLowerCase();
+    const password =
+      typeof req.body?.password === 'string' ? req.body.password : '';
+    const role = normalizeRole(req.body?.role);
+    const shipId = `${req.body?.shipId || ''}`.trim();
+
+    if (name.length < 2) {
+      throw new ApiError(400, 'Nama pengguna minimal 2 karakter.');
+    }
+    if (!/^[a-z0-9._-]{3,32}$/i.test(username)) {
+      throw new ApiError(
+        400,
+        'Username harus 3-32 karakter dan hanya boleh berisi huruf, angka, titik, garis bawah, atau tanda hubung.',
+      );
+    }
+    if (password && password.length < 8) {
+      throw new ApiError(400, 'Password minimal 8 karakter.');
+    }
+    if (!['NAHKODA', 'ADMIN', 'MANAGER'].includes(role)) {
+      throw new ApiError(400, 'Role wajib NAHKODA, ADMIN, atau MANAGER.');
+    }
+    if (role === 'NAHKODA' && !shipId) {
+      throw new ApiError(400, 'Kapal wajib dipilih untuk akun Nakhoda.');
+    }
+
+    const updated = mutateDb((db) => {
+      const user = db.users.find((item) => item.id === req.params.id);
+      if (!user) throw new ApiError(404, 'Pengguna tidak ditemukan.');
+
+      const duplicate = db.users.some(
+        (item) =>
+          item.id !== user.id &&
+          `${item.username}`.trim().toLowerCase() === username,
+      );
+      if (duplicate) throw new ApiError(409, 'Username sudah digunakan.');
+      if (user.id === req.user.id && role !== 'ADMIN') {
+        throw new ApiError(
+          409,
+          'Admin tidak dapat mengubah role akunnya sendiri.',
+        );
+      }
+
+      let ship = null;
+      if (role === 'NAHKODA') {
+        ship = db.ships.find((item) => item.id === shipId);
+        if (!ship) throw new ApiError(404, 'Kapal tidak ditemukan.');
+        if (ship.captainId && ship.captainId !== user.id) {
+          throw new ApiError(409, 'Kapal sudah memiliki akun Nakhoda.');
+        }
+      }
+
+      for (const item of db.ships) {
+        if (item.captainId === user.id) item.captainId = null;
+      }
+
+      user.name = name;
+      user.username = username;
+      user.role = role;
+      if (password) user.password = password;
+      if (ship) {
+        user.shipId = ship.id;
+        ship.captainId = user.id;
+      } else {
+        delete user.shipId;
+      }
+
+      return serializeUser(db, user);
+    });
+
+    res.json({
+      message: 'Akun pengguna berhasil diperbarui.',
+      data: updated,
     });
   });
 

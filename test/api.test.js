@@ -15,6 +15,7 @@ const { ensureStorage } = await import('../src/db.js');
 
 let server;
 let baseUrl;
+let createdCaptainId;
 
 before(() => {
   ensureStorage();
@@ -158,6 +159,7 @@ test('admin can create and list a new captain account', async () => {
   assert.equal(body.data.shipId, 'ship-002');
   assert.equal(body.data.ship.shipNumber, 'KM-002');
   assert.equal('password' in body.data, false);
+  createdCaptainId = body.data.id;
 
   const captain = await login('nahkoda2', 'password-kuat');
   const ships = await getJson('/ships/my', captain.token);
@@ -171,6 +173,44 @@ test('admin can create and list a new captain account', async () => {
   assert.ok(users.data.every((user) => !('password' in user)));
 });
 
+test('admin can edit an account and move its ship assignment', async () => {
+  const admin = await login('admin', 'password');
+  const response = await fetch(`${baseUrl}/users/${createdCaptainId}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${admin.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: 'Andi Saputra Diperbarui',
+      username: 'nahkoda-baru',
+      password: 'password-baru',
+      role: 'NAHKODA',
+      shipId: 'ship-003',
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.data.username, 'nahkoda-baru');
+  assert.equal(body.data.shipId, 'ship-003');
+  assert.equal(body.data.ship.shipNumber, 'KM-003');
+  assert.equal('password' in body.data, false);
+
+  const captain = await login('nahkoda-baru', 'password-baru');
+  const myShips = await getJson('/ships/my', captain.token);
+  assert.deepEqual(
+    myShips.data.map((ship) => ship.id),
+    ['ship-003'],
+  );
+
+  const ships = await getJson('/ships', admin.token);
+  const oldShip = ships.data.find((ship) => ship.id === 'ship-002');
+  const newShip = ships.data.find((ship) => ship.id === 'ship-003');
+  assert.equal(oldShip.captain, null);
+  assert.equal(newShip.captain.id, createdCaptainId);
+});
+
 test('user creation rejects duplicate usernames', async () => {
   const admin = await login('admin', 'password');
   const response = await fetch(`${baseUrl}/users`, {
@@ -181,7 +221,7 @@ test('user creation rejects duplicate usernames', async () => {
     },
     body: JSON.stringify({
       name: 'Duplikat',
-      username: 'NAHKODA2',
+      username: 'ADMIN',
       password: 'password-lain',
       role: 'ADMIN',
     }),
@@ -208,6 +248,46 @@ test('manager cannot create user accounts', async () => {
   });
 
   assert.equal(response.status, 403);
+});
+
+test('manager cannot edit user accounts', async () => {
+  const manager = await login('manager', 'password');
+  const response = await fetch(`${baseUrl}/users/${createdCaptainId}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${manager.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: 'Tidak Diizinkan',
+      username: 'blocked-edit',
+      role: 'MANAGER',
+    }),
+  });
+
+  assert.equal(response.status, 403);
+});
+
+test('admin cannot demote their own account', async () => {
+  const admin = await login('admin', 'password');
+  const response = await fetch(`${baseUrl}/users/${admin.data.id}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${admin.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: admin.data.name,
+      username: admin.data.username,
+      role: 'MANAGER',
+    }),
+  });
+
+  assert.equal(response.status, 409);
+  assert.equal(
+    (await response.json()).message,
+    'Admin tidak dapat mengubah role akunnya sendiri.',
+  );
 });
 
 test('submission document URLs use the configured public base URL', async () => {

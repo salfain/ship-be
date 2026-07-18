@@ -56,6 +56,7 @@ Jika dijalankan di HP fisik, ganti host dengan IP laptop dalam jaringan yang sam
 POST /api/auth/login
 GET  /api/users
 POST /api/users
+PUT  /api/users/:id
 GET  /api/ships
 POST /api/ships
 GET  /api/ships/my
