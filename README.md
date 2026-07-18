@@ -5,6 +5,7 @@ Backend Express untuk aplikasi Flutter Ship Monitoring.
 ## Fitur
 
 - Login role `NAHKODA`, `ADMIN`, `MANAGER`
+- Pembuatan akun pengguna baru oleh Admin
 - Data kapal dan kapal milik Nakhoda
 - Pengajuan berlabuh dengan upload 4 PDF
 - Verifikasi Admin
@@ -52,6 +53,8 @@ Jika dijalankan di HP fisik, ganti host dengan IP laptop dalam jaringan yang sam
 
 ```text
 POST /api/auth/login
+GET  /api/users
+POST /api/users
 GET  /api/ships
 GET  /api/ships/my
 POST /api/location/update

@@ -56,6 +56,7 @@ export function createApp() {
       health: `${apiPrefix}/health`,
       endpoints: [
         'POST /auth/login',
+        'POST /users',
         'GET /ships',
         'GET /submissions',
         'PUT /submissions/:id/manager-validation',
@@ -77,6 +78,75 @@ export function createApp() {
     );
     if (!user) throw new ApiError(401, 'Username atau password salah.');
     res.json({ token: createToken(user), data: serializeUser(db, user) });
+  });
+
+  router.get('/users', authRequired, requireRole('ADMIN'), (_req, res) => {
+    const db = readDb();
+    const users = [...db.users]
+      .sort((a, b) => `${a.name}`.localeCompare(`${b.name}`))
+      .map((user) => serializeUser(db, user));
+    res.json({ data: users });
+  });
+
+  router.post('/users', authRequired, requireRole('ADMIN'), (req, res) => {
+    const name = `${req.body?.name || ''}`.trim();
+    const username = `${req.body?.username || ''}`.trim().toLowerCase();
+    const password =
+      typeof req.body?.password === 'string' ? req.body.password : '';
+    const role = normalizeRole(req.body?.role);
+    const shipId = `${req.body?.shipId || ''}`.trim();
+
+    if (name.length < 2) {
+      throw new ApiError(400, 'Nama pengguna minimal 2 karakter.');
+    }
+    if (!/^[a-z0-9._-]{3,32}$/i.test(username)) {
+      throw new ApiError(
+        400,
+        'Username harus 3-32 karakter dan hanya boleh berisi huruf, angka, titik, garis bawah, atau tanda hubung.',
+      );
+    }
+    if (password.length < 8) {
+      throw new ApiError(400, 'Password minimal 8 karakter.');
+    }
+    if (!['NAHKODA', 'ADMIN', 'MANAGER'].includes(role)) {
+      throw new ApiError(400, 'Role wajib NAHKODA, ADMIN, atau MANAGER.');
+    }
+    if (role === 'NAHKODA' && !shipId) {
+      throw new ApiError(400, 'Kapal wajib dipilih untuk akun Nakhoda.');
+    }
+
+    const created = mutateDb((db) => {
+      const duplicate = db.users.some(
+        (user) => `${user.username}`.trim().toLowerCase() === username,
+      );
+      if (duplicate) throw new ApiError(409, 'Username sudah digunakan.');
+
+      let ship = null;
+      if (role === 'NAHKODA') {
+        ship = db.ships.find((item) => item.id === shipId);
+        if (!ship) throw new ApiError(404, 'Kapal tidak ditemukan.');
+        if (ship.captainId) {
+          throw new ApiError(409, 'Kapal sudah memiliki akun Nakhoda.');
+        }
+      }
+
+      const user = {
+        id: `usr-${crypto.randomUUID()}`,
+        username,
+        password,
+        name,
+        role,
+        ...(ship ? { shipId: ship.id } : {}),
+      };
+      db.users.push(user);
+      if (ship) ship.captainId = user.id;
+      return serializeUser(db, user);
+    });
+
+    res.status(201).json({
+      message: 'Akun pengguna berhasil dibuat.',
+      data: created,
+    });
   });
 
   router.get('/ships', authRequired, requireRole('ADMIN', 'MANAGER'), (req, res) => {

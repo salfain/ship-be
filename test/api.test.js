@@ -74,6 +74,82 @@ test('manager cannot use admin approve endpoint', async () => {
   assert.equal(response.status, 403);
 });
 
+test('admin can create and list a new captain account', async () => {
+  const admin = await login('admin', 'password');
+  const response = await fetch(`${baseUrl}/users`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${admin.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: 'Andi Saputra',
+      username: 'nahkoda2',
+      password: 'password-kuat',
+      role: 'NAHKODA',
+      shipId: 'ship-002',
+    }),
+  });
+
+  assert.equal(response.status, 201);
+  const body = await response.json();
+  assert.equal(body.data.username, 'nahkoda2');
+  assert.equal(body.data.role, 'NAHKODA');
+  assert.equal(body.data.shipId, 'ship-002');
+  assert.equal(body.data.ship.shipNumber, 'KM-002');
+  assert.equal('password' in body.data, false);
+
+  const captain = await login('nahkoda2', 'password-kuat');
+  const ships = await getJson('/ships/my', captain.token);
+  assert.deepEqual(
+    ships.data.map((ship) => ship.id),
+    ['ship-002'],
+  );
+
+  const users = await getJson('/users', admin.token);
+  assert.ok(users.data.some((user) => user.username === 'nahkoda2'));
+  assert.ok(users.data.every((user) => !('password' in user)));
+});
+
+test('user creation rejects duplicate usernames', async () => {
+  const admin = await login('admin', 'password');
+  const response = await fetch(`${baseUrl}/users`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${admin.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: 'Duplikat',
+      username: 'NAHKODA2',
+      password: 'password-lain',
+      role: 'ADMIN',
+    }),
+  });
+
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).message, 'Username sudah digunakan.');
+});
+
+test('manager cannot create user accounts', async () => {
+  const manager = await login('manager', 'password');
+  const response = await fetch(`${baseUrl}/users`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${manager.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: 'Tidak Diizinkan',
+      username: 'blocked-user',
+      password: 'password-kuat',
+      role: 'ADMIN',
+    }),
+  });
+
+  assert.equal(response.status, 403);
+});
+
 test('submission document URLs use the configured public base URL', async () => {
   const captain = await login('nahkoda', 'password');
   const form = new FormData();
