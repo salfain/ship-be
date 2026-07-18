@@ -11,6 +11,7 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 3131,
         API_PREFIX: '/api',
+        PUBLIC_BASE_URL: 'http://43.133.134.10',
       },
     },
   ],

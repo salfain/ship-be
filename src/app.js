@@ -9,8 +9,9 @@ import { createToken, normalizeRole, verifyToken } from './auth.js';
 import { mutateDb, readDb, uploadDir } from './db.js';
 
 const apiPrefix = process.env.API_PREFIX || '/api';
-const publicBaseUrl =
-  process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3131}`;
+const publicBaseUrl = `${process.env.PUBLIC_BASE_URL || ''}`
+  .trim()
+  .replace(/\/+$/, '');
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -503,8 +504,13 @@ function fileUrl(file) {
 function absoluteUrl(req, value) {
   if (!value) return null;
   if (/^https?:\/\//i.test(value)) return value;
-  const base = publicBaseUrl || `${req.protocol}://${req.get('host')}`;
-  return `${base}${value}`;
+  const requestBaseUrl = `${req.protocol}://${req.get('host')}`.replace(
+    /\/+$/,
+    '',
+  );
+  const base = publicBaseUrl || requestBaseUrl;
+  const pathname = value.startsWith('/') ? value : `/${value}`;
+  return `${base}${pathname}`;
 }
 
 function errorHandler(error, _req, res, _next) {

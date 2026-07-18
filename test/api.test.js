@@ -7,7 +7,7 @@ import { after, before, test } from 'node:test';
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ship-api-'));
 process.env.DATA_DIR = path.join(tempRoot, 'data');
 process.env.UPLOAD_DIR = path.join(tempRoot, 'uploads');
-process.env.PUBLIC_BASE_URL = 'http://localhost:3131';
+process.env.PUBLIC_BASE_URL = 'http://files.example.test/';
 process.env.TOKEN_SECRET = 'test-secret';
 
 const { createApp } = await import('../src/app.js');
@@ -72,6 +72,45 @@ test('manager cannot use admin approve endpoint', async () => {
   });
 
   assert.equal(response.status, 403);
+});
+
+test('submission document URLs use the configured public base URL', async () => {
+  const captain = await login('nahkoda', 'password');
+  const form = new FormData();
+  form.set('captainName', 'Budi Santoso');
+  form.set('employeeCount', '10');
+  form.set('cargo', 'Kontainer');
+  form.set('cargoAmount', '20 Unit');
+
+  for (const field of [
+    'sailingPermit',
+    'callSignCertificate',
+    'safetyCertificate',
+    'radioStationPermit',
+  ]) {
+    form.set(
+      field,
+      new Blob(['%PDF-1.4 test'], { type: 'application/pdf' }),
+      `${field}.pdf`,
+    );
+  }
+
+  const response = await fetch(`${baseUrl}/submissions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${captain.token}` },
+    body: form,
+  });
+  assert.equal(response.status, 201);
+
+  const body = await response.json();
+  for (const url of [
+    body.data.sailingPermitUrl,
+    body.data.callSignCertificateUrl,
+    body.data.safetyCertificateUrl,
+    body.data.radioStationPermitUrl,
+  ]) {
+    assert.match(url, /^http:\/\/files\.example\.test\/uploads\/.+\.pdf$/);
+  }
 });
 
 async function login(username, password) {

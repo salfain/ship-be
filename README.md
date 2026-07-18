@@ -25,10 +25,13 @@ Backend Express untuk aplikasi Flutter Ship Monitoring.
 
 ```bash
 cd backend
-copy .env.example .env
 npm install
 npm run dev
 ```
+
+File `.env` sudah disertakan agar hasil clone bisa langsung dijalankan. Secret
+token dibuat acak pada startup pertama dan disimpan di `data/token-secret`, jadi
+tidak ada secret production yang disimpan di repository publik.
 
 API lokal:
 
@@ -88,5 +91,28 @@ Untuk menolak:
 ```
 
 ## Catatan Production
+
+Set `PUBLIC_BASE_URL` ke origin publik yang melayani folder `/uploads` tanpa
+akhiran `/api`. Untuk deployment VPS saat ini:
+
+```env
+PUBLIC_BASE_URL=http://43.133.134.10
+```
+
+Jika backend dijalankan dengan PM2, muat ulang konfigurasi environment setelah
+perubahan:
+
+```bash
+pm2 startOrRestart ecosystem.config.cjs --update-env
+```
+
+Untuk instalasi baru di VPS, cukup clone repository, install dependency, lalu
+jalankan konfigurasi PM2:
+
+```bash
+npm ci --omit=dev
+pm2 startOrRestart ecosystem.config.cjs --update-env
+pm2 save
+```
 
 Backend ini cocok untuk development dan dasar deployment VPS. Untuk production final, sebaiknya ganti penyimpanan JSON menjadi database seperti PostgreSQL/MySQL, hash password dengan bcrypt/argon2, dan simpan file upload di object storage atau storage VPS yang dibackup.
